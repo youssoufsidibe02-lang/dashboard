@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard – Accès Excel Live</title>
+<style>
+:root{--bg:#f0f4f8;--surface:#fff;--border:#e2e8f0;--text:#1a202c;--muted:#718096;
+  --accent:#3182ce;--green:#38a169;--red:#e53e3e;--orange:#dd6b20;
+  --green-bg:#f0fff4;--red-bg:#fff5f5;--orange-bg:#fffaf0;--r:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:12px;height:60px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.topbar h1{font-size:16px;font-weight:700;}
+.live-pill{display:flex;align-items:center;gap:6px;background:#f0fff4;border:1px solid #9ae6b4;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:var(--green);}
+.live-pill.offline{background:var(--red-bg);border-color:#feb2b2;color:var(--red);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.spacer{flex:1;}
+.sync-info{font-size:11px;color:var(--muted);}
+.btn{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#2c5282;}
+.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+.btn-outline:hover{background:var(--bg);}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px;border:none;cursor:pointer;font-weight:500;transition:all .15s;}
+.btn-refresh{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+.btn-refresh:hover{background:var(--border);}
+.spin{animation:rot .8s linear infinite;}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* CONFIG */
+.config-box{margin:18px 24px 0;background:#fffbeb;border:1px solid #f6e05e;border-radius:var(--r);padding:16px 20px;}
+.config-box.ok{background:#f0fff4;border-color:#9ae6b4;}
+.config-box label{font-size:12px;font-weight:700;color:#744210;display:block;margin-bottom:8px;}
+.config-box.ok label{color:#276749;}
+.url-row{display:flex;gap:8px;}
+.url-row input{flex:1;padding:8px 12px;border:1px solid #f6e05e;border-radius:8px;font-size:12px;font-family:monospace;outline:none;background:#fff;}
+.config-box.ok .url-row input{border-color:#9ae6b4;}
+.url-row input:focus{border-color:var(--accent);}
+.hint{font-size:11px;color:#92400e;margin-top:6px;}
+.config-box.ok .hint{color:#276749;}
+
+/* ERREUR */
+.err-banner{display:none;margin:12px 24px 0;background:var(--red-bg);border:1px solid #fed7d7;border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--red);}
+.err-banner.show{display:block;}
+
+/* KPI */
+.kpi-row{display:flex;gap:12px;padding:18px 24px 0;flex-wrap:wrap;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;flex:1;min-width:130px;box-shadow:0 1px 6px rgba(0,0,0,.06);}
+.kpi .num{font-size:30px;font-weight:700;line-height:1;}
+.kpi .lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+.k-blue .num{color:var(--accent);}
+.k-green .num{color:var(--green);}
+.k-red .num{color:var(--red);}
+.k-orange .num{color:var(--orange);}
+
+/* MAIN */
+.main{padding:18px 24px;}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+.search-wrap{flex:1;min-width:180px;position:relative;}
+.search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--muted);}
+.search-wrap input{width:100%;padding:8px 12px 8px 30px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--surface);}
+.search-wrap input:focus{border-color:var(--accent);}
+.pills{display:flex;gap:5px;flex-wrap:wrap;}
+.pill{padding:5px 11px;border-radius:20px;border:1px solid var(--border);font-size:12px;cursor:pointer;background:var(--surface);white-space:nowrap;}
+.pill.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);}
+table{width:100%;border-collapse:collapse;}
+thead th{background:#f7fafc;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#f7fafc;}
+td{padding:11px 14px;vertical-align:middle;}
+.mname{font-weight:600;font-size:13px;}
+.msub{font-size:11px;color:var(--muted);margin-top:2px;}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;}
+.bg-green{background:var(--green-bg);color:var(--green);}
+.bg-red{background:var(--red-bg);color:var(--red);}
+.bg-orange{background:var(--orange-bg);color:var(--orange);}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.acts{display:flex;gap:5px;}
+.ag{background:var(--green-bg);color:var(--green);}
+.ag:hover{background:#c6f6d5;}
+.ar{background:var(--red-bg);color:var(--red);}
+.ar:hover{background:#fed7d7;}
+.am{background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+.am:hover{background:var(--border);}
+
+.state-msg{text-align:center;padding:48px 20px;color:var(--muted);}
+.loader{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:rot .7s linear infinite;margin:0 auto 12px;}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);border-radius:14px;padding:26px;width:400px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;}
+.fg{margin-bottom:12px;}
+.fg label{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+.fg input,.fg select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;}
+.fg input:focus,.fg select:focus{border-color:var(--accent);}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+
+.toast{position:fixed;bottom:20px;right:20px;background:#2d3748;color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;z-index:200;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{background:#276749;}
+.toast.err{background:#9b2c2c;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🔐 Gestion des accès Excel</h1>
+  <div class="live-pill offline" id="live-pill"><span class="live-dot"></span><span id="live-txt">Non connecté</span></div>
+  <div class="spacer"></div>
+  <span class="sync-info" id="sync-info"></span>
+  <button class="btn-refresh" id="btn-ref" onclick="charger()">
+    <svg id="ref-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    Actualiser
+  </button>
+</div>
+
+<!-- CONFIG URL -->
+<div class="config-box" id="config-box">
+  <label id="config-label">🔗 Collez l'URL de votre Google Apps Script :</label>
+  <div class="url-row">
+    <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/XXXXXXX/exec"/>
+    <button class="btn btn-primary" onclick="connecter()">Connecter</button>
+  </div>
+  <p class="hint" id="config-hint">⚠️ Assurez-vous que le déploiement est en accès <strong>Tout le monde (anonyme)</strong>.</p>
+</div>
+
+<!-- ERREUR -->
+<div class="err-banner" id="err-banner">
+  ⚠️ <strong>Impossible de joindre Google Sheets.</strong> Vérifiez que :<br>
+  1. L'URL est correcte (copiée depuis Déployer → Gérer les déploiements)<br>
+  2. Le déploiement est bien en accès <strong>Tout le monde (anonyme)</strong><br>
+  3. Vous avez bien cliqué <strong>Nouveau déploiement</strong> après modification du script v3
+</div>
+
+<!-- KPI -->
+<div class="kpi-row">
+  <div class="kpi k-blue"><div class="num" id="k-tot">—</div><div class="lbl">Total machines</div></div>
+  <div class="kpi k-green"><div class="num" id="k-ok">—</div><div class="lbl">✅ Autorisées</div></div>
+  <div class="kpi k-red"><div class="num" id="k-bl">—</div><div class="lbl">🔴 Bloquées</div></div>
+  <div class="kpi k-orange"><div class="num" id="k-wa">—</div><div class="lbl">⏳ En attente</div></div>
+</div>
+
+<!-- TABLE -->
+<div class="main">
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search" placeholder="Rechercher une machine…" oninput="filtrer()">
+    </div>
+    <div class="pills">
+      <span class="pill active" data-f="tous" onclick="setFilter(this)">Tous</span>
+      <span class="pill" data-f="autorise" onclick="setFilter(this)">✅ Autorisés</span>
+      <span class="pill" data-f="bloque" onclick="setFilter(this)">🔴 Bloqués</span>
+      <span class="pill" data-f="en_attente" onclick="setFilter(this)">⏳ En attente</span>
+    </div>
+    <button class="btn btn-primary" onclick="ouvrirModal()">+ Ajouter</button>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead><tr>
+        <th>Machine (PC)</th><th>Statut</th><th>Expiration</th>
+        <th>Dernière connexion</th><th>Note</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="state-msg" id="state-msg">
+      <p style="font-size:13px">Entrez l'URL du script ci-dessus pour commencer.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="modal">
+  <div class="modal">
+    <h2>➕ Ajouter une machine</h2>
+    <div class="fg"><label>Nom du PC (COMPUTERNAME)</label>
+      <input type="text" id="f-m" placeholder="ex: DESKTOP-AB123CD" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="fg"><label>Statut</label>
+      <select id="f-s"><option value="autorise">✅ Autorisé</option><option value="bloque" selected>🔴 Bloqué</option><option value="en_attente">⏳ En attente</option></select></div>
+    <div class="fg"><label>Expiration (optionnel)</label><input type="date" id="f-e"></div>
+    <div class="fg"><label>Note</label><input type="text" id="f-n" placeholder="ex: Service comptabilité"></div>
+    <div class="modal-acts">
+      <button class="btn btn-outline" onclick="fermerModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="ajouter()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let machines = [];
+let filtreActif = 'tous';
+let apiUrl = localStorage.getItem('gscript_url_v3') || '';
+
+// ─── JSONP : contourne le problème CORS ───────────────────
+let cbCount = 0;
+function jsonp(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = '__gs_cb_' + (++cbCount);
+    const timeout = setTimeout(() => {
+      delete window[cbName];
+      reject(new Error('Timeout — script Google non joignable'));
+    }, 12000);
+
+    window[cbName] = function(data) {
+      clearTimeout(timeout);
+      delete window[cbName];
+      document.getElementById('jsonp-script-' + cbCount)?.remove();
+      resolve(data);
+    };
+
+    params.callback = cbName;
+    const qs  = Object.entries(params).map(([k,v]) => k+'='+encodeURIComponent(v)).join('&');
+    const url = apiUrl + (apiUrl.includes('?') ? '&' : '?') + qs;
+
+    const s = document.createElement('script');
+    s.id  = 'jsonp-script-' + cbCount;
+    s.src = url;
+    s.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      s.remove();
+      reject(new Error('Script inaccessible — URL incorrecte ou accès refusé'));
+    };
+    document.head.appendChild(s);
+  });
+}
+
+// ─── INIT ───────────────────────────────────────────────
+if (apiUrl) {
+  document.getElementById('script-url').value = apiUrl;
+  charger();
+}
+
+function connecter() {
+  const url = document.getElementById('script-url').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    toast("URL invalide — doit commencer par https://script.google.com", 'err'); return;
+  }
+  apiUrl = url;
+  localStorage.setItem('gscript_url_v3', url);
+  toast('URL enregistrée, connexion…');
+  charger();
+}
+
+async function charger() {
+  if (!apiUrl) return;
+  const icon = document.getElementById('ref-icon');
+  icon.classList.add('spin');
+  document.getElementById('err-banner').classList.remove('show');
+
+  try {
+    const data = await jsonp({ action: 'liste' });
+    if (!data.ok) throw new Error(data.message);
+
+    machines = data.machines || [];
+    majKpi();
+    filtrer();
+
+    // UI connecté
+    const pill = document.getElementById('live-pill');
+    pill.className = 'live-pill';
+    document.getElementById('live-txt').textContent = 'Connecté';
+    document.getElementById('sync-info').textContent = 'Sync : ' + new Date().toLocaleTimeString('fr-FR');
+
+    const cb = document.getElementById('config-box');
+    cb.classList.add('ok');
+    document.getElementById('config-label').textContent = '✅ Connecté à Google Sheets';
+    document.getElementById('config-hint').textContent = 'Dashboard synchronisé en temps réel.';
+
+  } catch(e) {
+    document.getElementById('err-banner').classList.add('show');
+    document.getElementById('live-pill').className = 'live-pill offline';
+    document.getElementById('live-txt').textContent = 'Hors ligne';
+    document.getElementById('state-msg').innerHTML = '<p style="font-size:13px;color:var(--red)">Erreur : ' + e.message + '</p>';
+    document.getElementById('state-msg').style.display = '';
+  } finally {
+    icon.classList.remove('spin');
+  }
+}
+
+// ─── KPI ────────────────────────────────────────────────
+function majKpi() {
+  document.getElementById('k-tot').textContent = machines.length;
+  document.getElementById('k-ok').textContent  = machines.filter(m=>m.statut==='autorise').length;
+  document.getElementById('k-bl').textContent  = machines.filter(m=>m.statut==='bloque').length;
+  document.getElementById('k-wa').textContent  = machines.filter(m=>m.statut==='en_attente').length;
+}
+
+// ─── TABLE ──────────────────────────────────────────────
+function badge(s) {
+  const m = {autorise:['bg-green','var(--green)','✅ Autorisé'],bloque:['bg-red','var(--red)','🔴 Bloqué'],en_attente:['bg-orange','var(--orange)','⏳ En attente']};
+  const [c,col,l] = m[s]||['bg-orange','var(--orange)',s];
+  return `<span class="badge ${c}"><span class="dot" style="background:${col}"></span>${l}</span>`;
+}
+
+function filtrer() {
+  const q = document.getElementById('search').value.toUpperCase();
+  let liste = machines.filter(m=>m.machine.includes(q));
+  if (filtreActif !== 'tous') liste = liste.filter(m=>m.statut===filtreActif);
+
+  const tbody = document.getElementById('tbody');
+  const msg   = document.getElementById('state-msg');
+
+  if (liste.length === 0 && machines.length === 0) { msg.style.display=''; tbody.innerHTML=''; return; }
+  msg.style.display = 'none';
+
+  if (liste.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px;font-size:13px">Aucune machine correspond</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = liste.map(m => {
+    const mid = m.machine.replace(/'/g,"\\'");
+    const btn = m.statut !== 'autorise'
+      ? `<button class="btn-sm ag" onclick="changerStatut('${mid}','autorise')">Autoriser</button>`
+      : `<button class="btn-sm ar" onclick="changerStatut('${mid}','bloque')">Bloquer</button>`;
+    const exp = m.expiration ? new Date(m.expiration).toLocaleDateString('fr-FR') : '—';
+    return `<tr>
+      <td><div class="mname">${m.machine}</div><div class="msub">${m.note||'Aucune note'}</div></td>
+      <td>${badge(m.statut)}</td>
+      <td style="font-size:12px;color:var(--muted)">${exp}</td>
+      <td style="font-size:12px;color:var(--muted)">${m.derniereConnexion}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.note||'—'}</td>
+      <td><div class="acts">${btn}<button class="btn-sm am" onclick="supprimer('${mid}')">🗑</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function setFilter(el) {
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  filtreActif = el.dataset.f;
+  filtrer();
+}
+
+// ─── ACTIONS ────────────────────────────────────────────
+async function changerStatut(machine, statut) {
+  const action = statut==='autorise' ? 'autoriser' : 'bloquer';
+  try {
+    const r = await jsonp({ action, machine });
+    if (!r.ok) throw new Error(r.message);
+    toast(statut==='autorise' ? '✅ Accès autorisé' : '🔴 Accès bloqué', statut==='autorise'?'ok':'err');
+    await charger();
+  } catch(e) { toast('Erreur : '+e.message,'err'); }
+}
+
+async function supprimer(machine) {
+  if (!confirm('Supprimer '+machine+' ?')) return;
+  try {
+    const r = await jsonp({ action:'supprimer', machine });
+    if (!r.ok) throw new Error(r.message);
+    toast('🗑 Supprimée');
+    await charger();
+  } catch(e) { toast('Erreur : '+e.message,'err'); }
+}
+
+function ouvrirModal() { document.getElementById('modal').classList.add('open'); }
+function fermerModal() {
+  document.getElementById('modal').classList.remove('open');
+  ['f-m','f-n','f-e'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-s').value='bloque';
+}
+
+async function ajouter() {
+  const machine = document.getElementById('f-m').value.trim().toUpperCase();
+  if (!machine) { toast('Nom de machine requis','err'); return; }
+  try {
+    const r = await jsonp({
+      action:'ajouter', machine,
+      statut:     document.getElementById('f-s').value,
+      expiration: document.getElementById('f-e').value,
+      note:       document.getElementById('f-n').value
+    });
+    if (!r.ok) throw new Error(r.message);
+    toast('✅ Machine ajoutée','ok');
+    fermerModal();
+    await charger();
+  } catch(e) { toast('Erreur : '+e.message,'err'); }
+}
+
+document.getElementById('modal').addEventListener('click', e=>{if(e.target===e.currentTarget)fermerModal();});
+
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show '+type;
+  setTimeout(()=>el.className='toast', 3000);
+}
+
+// Auto-refresh 30s
+setInterval(()=>{ if(apiUrl) charger(); }, 30000);
+</script>
+</body>
+</html>
